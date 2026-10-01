@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+tasks.db
+docs/db-browser-screenshot.png

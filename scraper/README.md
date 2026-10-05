@@ -1,61 +1,129 @@
-# A9 — The Polite Scraper
+\# A9 — The Polite Scraper
 
-## Target Classification
 
-Target: Books to Scrape  
+
+\## Target Classification
+
+
+
+Target: Books to Scrape
+
 URL: https://books.toscrape.com/
+
+
 
 Books to Scrape is a web scraping sandbox intended for learning and testing scraping technologies. It is a fictional bookstore and does not require login or JavaScript for the catalogue data.
 
-## Robots.txt Check
+
+
+\## Robots.txt Check
+
+
 
 Requested:
 
+
+
 https://books.toscrape.com/robots.txt
+
+
 
 Result: HTTP 404 Not Found.
 
+
+
 The requested robots.txt file was not available at this URL.
 
-## Scope
 
-This scraper will process only the first 3 catalogue pages of Books to Scrape.
 
-The expected scope is:
-- 3 catalogue pages
-- 60 unique book URLs
-- Individual book detail pages
-- No hardcoded book URLs
+\## Scope
 
-## Data Collected
 
-For each book, the scraper will collect:
 
-- title
-- product_url
-- price_text
-- availability_text
-- rating_text
-- description
-- source_page
-- fetched_at
+This scraper processes only the first 3 catalogue pages.
 
-The normalized output will additionally contain:
 
-- price_gbp
 
-## Why This Target Is Appropriate
+Expected scope:
 
-Books to Scrape is specifically provided as a safe web scraping practice sandbox. The project is limited to the first three catalogue pages and will use polite scraping practices such as an identifying User-Agent, request timeout, caching, and a delay between real requests.
 
-I will not reuse this code on another site without checking its rules and terms first.
 
-## Ethics
+\- 3 catalogue pages
 
-This project is for educational purposes.
+\- 60 unique book URLs
 
-When scraping real websites:
-- Prefer an official API when one is available.
-- Do not bypass logins, paywalls, access controls, or blocks.
-- Collect only the data that is actually needed.
-- Follow the site's rules and terms before reusing this scraper.
+\- Individual book detail pages
+
+\- No hardcoded book URLs
+
+
+
+The catalogue pages are followed dynamically using the site's `next` link.
+
+
+
+\## Data Collected
+
+
+
+For each book, the scraper collects:
+
+
+
+\- `title`
+
+\- `product\\\_url`
+
+\- `price\\\_text`
+
+\- `price\\\_gbp`
+
+\- `availability\\\_text`
+
+\- `rating\\\_text`
+
+\- `description`
+
+\- `source\\\_page`
+
+\- `fetched\\\_at`
+
+
+
+The raw extraction stage keeps the required provenance fields, while the validated output additionally contains the normalized numeric `price\\\_gbp`.
+
+
+
+\## Pipeline
+
+
+
+The scraper follows this pipeline:
+
+
+
+```text
+
+Fetch
+
+\&#x20; ?
+
+Extract
+
+\&#x20; ?
+
+Normalize
+
+\&#x20; ?
+
+Validate
+
+\&#x20; ?
+
+Store
+
+\&#x20; ?
+
+Report
+
+

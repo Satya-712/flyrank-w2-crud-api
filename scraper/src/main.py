@@ -1,18 +1,33 @@
 from pathlib import Path
+import json
 import time
 from datetime import datetime, timezone
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from pydantic import BaseModel, Field, HttpUrl, ValidationError
 
 
 BASE_URL = "https://books.toscrape.com/"
 CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
 USER_AGENT = "FlyRankInternship-A9/1.0 (+https://github.com/Satya-712/flyrank-w2-crud-api)"
 TIMEOUT = 10
 REQUEST_DELAY = 0.5
+
+
+class Book(BaseModel):
+    title: str = Field(min_length=1)
+    product_url: HttpUrl
+    price_text: str = Field(min_length=1)
+    price_gbp: float = Field(ge=0)
+    availability_text: str = Field(min_length=1)
+    rating_text: str = Field(min_length=1)
+    description: str | None = None
+    source_page: HttpUrl
+    fetched_at: str
 
 
 def fetch_page(url, cache_file):
@@ -72,7 +87,10 @@ def discover_books():
         if next_link:
             next_url = urljoin(next_url, next_link.get("href"))
 
-            next_cache = CACHE_DIR / f"catalogue-page-{catalogue_pages + 1}.html"
+            next_cache = (
+                CACHE_DIR /
+                f"catalogue-page-{catalogue_pages + 1}.html"
+            )
 
             if not next_cache.exists():
                 time.sleep(REQUEST_DELAY)
@@ -104,6 +122,7 @@ def extract_book_details(product_url, source_page, index):
     description = soup.select_one("#product_description + p")
 
     rating_text = None
+
     if rating:
         classes = rating.get("class", [])
         rating_text = next(
@@ -112,8 +131,12 @@ def extract_book_details(product_url, source_page, index):
         )
 
     description_text = None
+
     if description:
-        description_text = description.get_text(" ", strip=True)
+        description_text = description.get_text(
+            " ",
+            strip=True
+        )
 
     return {
         "title": title.get_text(strip=True) if title else None,
@@ -131,6 +154,73 @@ def extract_book_details(product_url, source_page, index):
     }
 
 
+def normalize_price(price_text):
+    cleaned = price_text.replace("£", "").replace("Â", "").strip()
+    return float(cleaned)
+
+
+def normalize_and_validate(records):
+    valid_records = []
+    errors = []
+    seen_urls = set()
+
+    for index, record in enumerate(records, start=1):
+        try:
+            product_url = str(record["product_url"])
+
+            if product_url in seen_urls:
+                raise ValueError("Duplicate product_url")
+
+            seen_urls.add(product_url)
+
+            normalized = {
+                **record,
+                "product_url": product_url,
+                "price_gbp": normalize_price(record["price_text"]),
+            }
+
+            book = Book.model_validate(normalized)
+
+            valid_records.append(book.model_dump(mode="json"))
+
+        except (ValidationError, ValueError, TypeError) as exc:
+            errors.append({
+                "record_index": index,
+                "product_url": record.get("product_url"),
+                "reason": str(exc),
+            })
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    books_file = OUTPUT_DIR / "books.json"
+    errors_file = OUTPUT_DIR / "errors.json"
+
+    books_file.write_text(
+        json.dumps(
+            valid_records,
+            indent=2,
+            ensure_ascii=False
+        ),
+        encoding="utf-8"
+    )
+
+    errors_file.write_text(
+        json.dumps(
+            errors,
+            indent=2,
+            ensure_ascii=False
+        ),
+        encoding="utf-8"
+    )
+
+    print(f"valid_records={len(valid_records)}")
+    print(f"invalid_records={len(errors)}")
+    print(f"books_json={books_file}")
+    print(f"errors_json={errors_file}")
+
+    return valid_records, errors
+
+
 def extract_all_books():
     book_urls = discover_books()
     records = []
@@ -141,7 +231,7 @@ def extract_all_books():
             f"{((index - 1) // 20) + 1}.html"
         )
 
-        print(f"DETAIL {index}/60: {product_url}")
+        print(f"DETAIL {index}/{len(book_urls)}: {product_url}")
 
         record = extract_book_details(
             product_url,
@@ -167,4 +257,5 @@ def extract_all_books():
 
 
 if __name__ == "__main__":
-    extract_all_books()
+    raw_records = extract_all_books()
+    normalize_and_validate(raw_records)
